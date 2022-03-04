@@ -1,4 +1,5 @@
 
+from login.decorators import is_admin
 from .constants import bcrypt , mail
 from .models import User
 from mongoengine import *
@@ -10,8 +11,6 @@ from flask_mailing import  Message
 
 
 auth = Blueprint('auth', __name__)
-
-
 
 #register users
 @auth.route("/api/v1/users", methods=["POST"])
@@ -37,7 +36,7 @@ def register():
 		print(e)
 		return Response(
 				response= json.dumps({
-						"message" : "User cannot be Created",
+						"message" : "Problem : Exception occured.User cannot be Created",
 					})
 				)
 
@@ -63,8 +62,14 @@ async def send_otp():
 				)
 
 	except Exception as e:
-		return e
+		print(e)
+		return Response(
+			response= json.dumps({
+				"message" : "Problem : Exception occured.Cannot send the code"
+			})
+		)
 
+#Email confirmation
 @auth.route("/api/v1/usercode", methods=["POST"])
 def check_code():
 	try:
@@ -87,8 +92,12 @@ def check_code():
 						})
 					)
 	except Exception as e:
-		return e
-
+		print(e)
+		return Response(
+			response= ({
+				"message" : "Problem : Exception occured.Cannot verify the email"
+			})
+		)
 
 #for login
 @auth.route("/api/v1/login", methods=["POST"])
@@ -115,14 +124,12 @@ def login():
 						)
 				else:
 					return json.dumps({'msg': 'The email or password is incorrect'})
-		return json.dumps({'msg': 'The email is invalid'})
+		return json.dumps({'message': 'The email is invalid'})
 	except Exception as e:
 		print(e)
-		return json.dumps({'msg': 'Error occured'})
+		return json.dumps({'message': ' Problem : Exception occured. Could not login.'})
 
-
-
-
+#get profile of the logged in user
 @auth.route("/api/v1/user", methods=["GET"])
 @jwt_required()
 def profile():
@@ -140,9 +147,7 @@ def profile():
 			}}])
 		users = []
 		for user in user_from_db:
-			users.append(user)			
-			
-	# .to_json
+			users.append(user)					
 		if user_from_db:
 			return Response(
 						response= json.dumps({
@@ -152,33 +157,94 @@ def profile():
 		else:
 			return Response(
 						response= json.dumps({
-								"msg" : "Profile Not found"
+								"message" : "Profile Not found"
 							})
 						)
 	
 	except Exception as e:
 		print(e)
+		return Response(
+			response= json.dumps({
+				"message" : "Problem : Exception occured.Couldn't get your user data"
+			})
+		)
+
+@auth.route("/api/v1/users", methods=["GET"])
+@jwt_required()
+@is_admin
+def profiles():
+	try:
+		current_user = get_jwt_identity()
+		find_user = User.objects.filter(id = current_user)
+		for user in find_user:
+			is_current_user = user.is_current_user
+
+		if is_current_user == False:
+				return Response(
+				response= json.dumps({
+				"msg" : "You have to be logged in for this operation"
+					})
+				)
+		else:
+			user_from_db= User.objects().aggregate([{"$project": {
+                '_id' : 0,
+                'password' : 0,
+                'last_logged_in' : 0,
+                'code' : 0
+                }}])
+			users = []
+			for user in user_from_db:
+				users.append(user)					
+			if user_from_db:
+				return Response(
+                            response= json.dumps({
+                                    "profile" : users
+                                })
+                            )
+			else:
+				return Response(
+                    response= json.dumps({
+                                    "message" : "Profile Not found"
+                                })
+                            )   
+	except Exception as e:
+		print(e)
+		return Response(
+			response= json.dumps({
+				"message" : "Problem : Exception occured.Couldn't get your user data"
+			})
+		)
 
 @auth.route("/api/v1/logout")
 @jwt_required(optional= True)
 def logout():
-	current_user = get_jwt_identity()
-	find_user = User.objects.filter(id = current_user)
-	for user in find_user:
-		is_current_user = user.is_current_user
-		username = user.username
-	
-	if is_current_user == False:
+	try:
+		current_user = get_jwt_identity()
+		
+		find_user = User.objects.filter(id = current_user)
+		for user in find_user:
+			is_current_user = user.is_current_user
+			username = user.username
+		
+		
+		if is_current_user == False:
+				return Response(
+				response= json.dumps({
+				"msg" : "You have to be logged in to log out"
+					})
+				)
+		else:
+			User.objects.filter(id = current_user).update(is_current_user = False)
 			return Response(
-			response= json.dumps({
-			"msg" : "You have to be logged in to log out"
-				})
-			)
-	else:
-		User.objects.filter(id = current_user).update(is_current_user = False)
+				response= json.dumps({
+				"msg" : "Logged out",
+				"username" : username
+					})
+				)
+	except Exception as e:
+		print(e)
 		return Response(
 			response= json.dumps({
-			"msg" : "Logged out",
-			"username" : username
-				})
-			)
+				"message" : "Problem : Exception occured.Couldn't logout"
+			})
+		)
