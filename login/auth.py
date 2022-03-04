@@ -105,7 +105,11 @@ def login():
 					access_token = create_access_token(identity=str(check_user.id)) # create jwt token
 
 					User.objects(email = login_details.get('email')).update_one(is_current_user = True)
-					User.objects(email = login_details.get('email')).update_one(userType = "user")
+					if User.objects(login_details.get('userType')) == "admin":
+						User.objects(email = login_details.get('email')).update_one(userType = "admin")
+					else:
+						User.objects(email = login_details.get('email')).update_one(userType = "admin")
+
 					print(access_token)
 					return Response(
 						response= json.dumps({
@@ -166,9 +170,22 @@ def profile():
 @jwt_required(optional= True)
 def logout():
 	current_user = get_jwt_identity()
-	User.objects.filter(id = current_user).update(is_current_user = False)
-	return Response(
-		response= json.dumps({
-			"msg" : "Logged out"
+	find_user = User.objects.filter(id = current_user)
+	for user in find_user:
+		username = user.username
+		is_current_user = user.is_current_user
+	
+	if is_current_user == False:
+			return Response(
+			response= json.dumps({
+			"msg" : "You have to be logged in to log out"
+				})
+			)
+	else:
+		User.objects.filter(id = current_user).update(is_current_user = False)
+		return Response(
+			response= json.dumps({
+			"msg" : "Logged out",
+			"username" : username
 				})
 			)

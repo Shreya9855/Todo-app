@@ -61,7 +61,8 @@ def get_board():
                             "description" : board.description,
                             "task" : task_list
                         })
-                
+        # post.update(push__tags__0=["database", "code"])
+        boards.update(push__task_contains = task_list)
 
 
     return Response(
