@@ -27,7 +27,6 @@ def register():
 		letters = "".join(str([s[0] for s in users_collection.username.split()]))
 		users_collection.background_url = image_url.replace("Hello",letters)
 		users_collection.save()
-		# print(users_collection)
 		return Response(
 				response= json.dumps({
 						"message" : "User Created"
@@ -97,9 +96,7 @@ def login():
 	try:
 		login_details = request.get_json() # store the json body request
 		check_user = User.objects.filter(email=login_details.get('email')).first()
-		print(check_user.username)
 		if check_user:
-			print(check_user.id)
 			if  check_user.is_email_confirmed == True:
 				if bcrypt.check_password_hash(check_user.password,login_details.get("password")):                  
 					access_token = create_access_token(identity=str(check_user.id)) # create jwt token
@@ -109,8 +106,7 @@ def login():
 						User.objects(email = login_details.get('email')).update_one(userType = "admin")
 					else:
 						User.objects(email = login_details.get('email')).update_one(userType = "admin")
-
-					print(access_token)
+					# print(access_token)
 					return Response(
 						response= json.dumps({
 								"message" : "User logged in",
@@ -144,10 +140,7 @@ def profile():
 			}}])
 		users = []
 		for user in user_from_db:
-			users.append(user)
-		
-		print(user_from_db)
-		
+			users.append(user)			
 			
 	# .to_json
 		if user_from_db:
@@ -172,8 +165,8 @@ def logout():
 	current_user = get_jwt_identity()
 	find_user = User.objects.filter(id = current_user)
 	for user in find_user:
-		username = user.username
 		is_current_user = user.is_current_user
+		username = user.username
 	
 	if is_current_user == False:
 			return Response(
