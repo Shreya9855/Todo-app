@@ -114,7 +114,7 @@ def login():
 					if User.objects(login_details.get('userType')) == "admin":
 						User.objects(email = login_details.get('email')).update_one(userType = "admin")
 					else:
-						User.objects(email = login_details.get('email')).update_one(userType = "admin")
+						User.objects(email = login_details.get('email')).update_one(userType = "user")
 					# print(access_token)
 					return Response(
 						response= json.dumps({
@@ -169,6 +169,7 @@ def profile():
 			})
 		)
 
+# get profiles of users
 @auth.route("/api/v1/users", methods=["GET"])
 @jwt_required()
 @is_admin

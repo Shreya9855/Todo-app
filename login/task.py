@@ -1,4 +1,5 @@
 # from .constants import mongo
+from urllib import response
 from .decorators import is_admin
 from .models import Task,Boards,User
 from mongoengine import *
@@ -11,7 +12,6 @@ from webcolors import hex_to_name,name_to_hex
 task = Blueprint('task',__name__)
 
 #AddBoard
-
 @task.route("/api/v1/board",methods = ['POST'])
 @jwt_required()
 def add_board():
@@ -25,6 +25,7 @@ def add_board():
             board_collection = Boards()
             board_collection.title = new_board.get('title')
             board_collection.description = new_board.get('description')
+
             image_url = "https://fakeimg.pl/650x350/0000ff/?text=Hello&font=arial"
             coded_color = image_url.split("/")[-2] 
             board_collection.color = new_board.get('color')
@@ -34,7 +35,9 @@ def add_board():
             url_color = image_url.replace(coded_color,hex_color)
             background_color_url = url_color.replace("Hello",board_collection.title)
             board_collection.background_url = background_color_url
+            board_collection.created_by = ObjectId(current_user)
             board_collection.save()
+            
             return Response(
                 response= json.dumps({
                             "message" : "Board Created"
@@ -55,10 +58,9 @@ def add_board():
 					})
 				)
 
-#get particular task
+#get particular board
 @task.route("/api/v1/board",methods = ['GET'])
 @jwt_required()
-@is_admin
 def get_board():
     try:
         current_user = get_jwt_identity()
@@ -96,6 +98,72 @@ def get_board():
 					})
 				)
 
+
+
+# get board and user information
+@task.route("/api/v1/board_user",methods = ['GET'])
+@jwt_required()
+# @is_admin
+def get_board_user():
+    try:
+        current_user = get_jwt_identity()
+        find_user = User.objects.filter(id = current_user)
+        for user in find_user:
+            is_current_user = user.is_current_user
+        if is_current_user == True:
+            board_user = []
+            user_list = []
+            board_list =[]
+            board_from_db = Boards.objects
+            user_from_db = User.objects
+            for board in board_from_db:
+                for user in user_from_db:
+                    if user.id == board.created_by.id:
+                        user_from_db= User.objects.filter(id = board.created_by.id).aggregate([{"$project": {
+                    '_id' : 0,
+                    'password' : 0,
+                    'is_current_user':0,
+                    'userType' : 0,
+                    'is_email_confirmed' : 0,
+                    'last_logged_in' : 0,
+                    'code' : 0
+                    }}])
+
+
+                        board_list.append(board.description)
+                        for user in user_from_db:
+                            user_list .append(user) 
+                board_user.append(({
+                    "board" : board.title,
+                    "description" :board.description,
+                    "user" : user_list
+                }))
+                print(board_user)
+            
+        
+            return Response(
+                        response= json.dumps({
+                                "Board creators" : board_user,
+                            })
+                        )
+
+        else:
+            return Response(
+                response= json.dumps({
+                            "message" : "Please log in to get the board"
+                        })
+                    )
+        
+
+
+    except Exception as e:
+        print(e)
+        return Response(
+            response= json.dumps({
+                    "message" : "Problem : Could not get the data desired"
+                        })
+                    )
+
 #Add task
 @task.route("/api/v1/tasks",methods = ['POST'])
 @jwt_required()
@@ -121,7 +189,7 @@ def add_task():
             if tasks_collection.boardName != None:
                 Task.objects(title=new_task.get("title")).update_one(set__is_a_member_on_board = True)
             boards = Boards.objects()
-            boards.update(push__task_contains = tasks_collection.title)
+            boards.update(add_to_set__task_contains = tasks_collection.title)
 
             return Response(
                 response= json.dumps({

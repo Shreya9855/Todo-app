@@ -23,9 +23,11 @@ class Boards(Document):
     description = StringField()
     color = StringField()
     background_url = URLField()
-    created_by = ReferenceField(User)
+    created_by = ReferenceField(User, reverse_delete_rule=CASCADE)
     created_on = DateTimeField(default=datetime.utcnow)
     task_contains = ListField()
+
+    
 
 
 class Task(Document):
